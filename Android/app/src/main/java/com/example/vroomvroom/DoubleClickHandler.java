@@ -1,4 +1,4 @@
-// DoubleClickHandler.java - Fixed version with better debugging
+// DoubleClickHandler.java
 package com.example.vroomvroom;
 
 import android.os.Handler;

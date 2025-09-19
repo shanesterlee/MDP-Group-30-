@@ -1,4 +1,4 @@
-// DirectionSelectionDialog.java - Dialog for selecting direction when double-clicking objects
+// DirectionSelectionDialog.java
 package com.example.vroomvroom;
 
 import android.app.AlertDialog;

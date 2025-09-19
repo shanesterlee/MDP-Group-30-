@@ -1,4 +1,4 @@
-// DragDropManager.java - Updated to handle both drag/drop and click events
+// DragDropManager.java
 package com.example.vroomvroom;
 
 import android.graphics.Rect;

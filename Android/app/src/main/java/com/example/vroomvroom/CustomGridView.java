@@ -1,4 +1,4 @@
-// CustomGridView.java - Updated with 2x2 robot highlighting and path tracking
+// CustomGridView.java
 package com.example.vroomvroom;
 
 import android.content.Context;
