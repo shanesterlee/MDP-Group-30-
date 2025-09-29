@@ -1,9 +1,10 @@
-// MainActivity.java
 package com.example.vroomvroom;
 
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothDevice;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.SystemClock;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.View;
@@ -41,7 +42,6 @@ public class MainActivity extends AppCompatActivity implements
     private Button btnRight;
 
     // UI elements
-
     private Button wk8Button;
     private TextView wk8Timer;
     private Button wk9Button;
@@ -63,6 +63,15 @@ public class MainActivity extends AppCompatActivity implements
     private BluetoothMessageHandler messageHandler;
     private DirectionSelectionDialog directionDialog;
 
+    // Timer functionality
+    private Handler timerHandler = new Handler();
+    private Runnable week8TimerRunnable;
+    private Runnable week9TimerRunnable;
+    private long week8StartTime = 0;
+    private long week9StartTime = 0;
+    private boolean week8Running = false;
+    private boolean week9Running = false;
+
     // State
     private String currentObject = "None";
     private float[] object1OriginalPos = new float[2];
@@ -80,6 +89,7 @@ public class MainActivity extends AppCompatActivity implements
         initViews();
         setupListeners();
         setupInitialState();
+        setupTimerRunnables();
     }
 
     @Override
@@ -89,6 +99,9 @@ public class MainActivity extends AppCompatActivity implements
         if (directionDialog != null) {
             directionDialog.dismiss();
         }
+        // Clean up timer handlers
+        timerHandler.removeCallbacks(week8TimerRunnable);
+        timerHandler.removeCallbacks(week9TimerRunnable);
     }
 
     private void initializeManagers() {
@@ -110,6 +123,151 @@ public class MainActivity extends AppCompatActivity implements
 
         directionDialog = new DirectionSelectionDialog(this);
         directionDialog.setOnDirectionSelectedListener(this);
+    }
+
+    private void setupTimerRunnables() {
+        // Week 8 timer runnable
+        week8TimerRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (week8Running) {
+                    long elapsedTime = SystemClock.elapsedRealtime() - week8StartTime;
+                    updateTimerDisplay(wk8Timer, elapsedTime);
+                    timerHandler.postDelayed(this, 100); // Update every 100ms for smooth display
+                }
+            }
+        };
+
+        // Week 9 timer runnable
+        week9TimerRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (week9Running) {
+                    long elapsedTime = SystemClock.elapsedRealtime() - week9StartTime;
+                    updateTimerDisplay(wk9Timer, elapsedTime);
+                    timerHandler.postDelayed(this, 100); // Update every 100ms for smooth display
+                }
+            }
+        };
+    }
+
+    private void updateTimerDisplay(TextView timerView, long elapsedTime) {
+        long minutes = (elapsedTime / 1000) / 60;
+        long seconds = (elapsedTime / 1000) % 60;
+        long centiseconds = (elapsedTime % 1000) / 10;
+        String timeString = String.format("%02d:%02d.%02d", minutes, seconds, centiseconds);
+        timerView.setText(timeString);
+    }
+
+    // Modified timer methods with stop/reset functionality
+    private void startWeek8Timer() {
+        if (!week8Running) {
+            week8Running = true;
+            week8StartTime = SystemClock.elapsedRealtime();
+            wk8Button.setEnabled(true); // Keep enabled for stopping
+            wk8Button.setText("Stop");
+            timerHandler.post(week8TimerRunnable);
+            appendMessage("Week 8 task started - Timer running");
+        }
+    }
+
+    private void stopWeek8Timer() {
+        if (week8Running) {
+            week8Running = false;
+            timerHandler.removeCallbacks(week8TimerRunnable);
+            wk8Button.setEnabled(true);
+            wk8Button.setText("Start Week 8");
+            long finalTime = SystemClock.elapsedRealtime() - week8StartTime;
+            long minutes = (finalTime / 1000) / 60;
+            long seconds = (finalTime / 1000) % 60;
+            long centiseconds = (finalTime % 1000) / 10;
+            appendMessage(String.format("Week 8 task completed in %02d:%02d.%02d",
+                    minutes, seconds, centiseconds));
+        }
+    }
+
+    private void resetWeek8Timer() {
+        week8Running = false;
+        timerHandler.removeCallbacks(week8TimerRunnable);
+        wk8Button.setEnabled(true);
+        wk8Button.setText("Start Week 8");
+        wk8Timer.setText("00:00.00");
+        appendMessage("Week 8 timer reset");
+    }
+
+    private void startWeek9Timer() {
+        if (!week9Running) {
+            week9Running = true;
+            week9StartTime = SystemClock.elapsedRealtime();
+            wk9Button.setEnabled(true); // Keep enabled for stopping
+            wk9Button.setText("Stop");
+            timerHandler.post(week9TimerRunnable);
+            appendMessage("Week 9 task started - Timer running");
+        }
+    }
+
+    private void stopWeek9Timer() {
+        if (week9Running) {
+            week9Running = false;
+            timerHandler.removeCallbacks(week9TimerRunnable);
+            wk9Button.setEnabled(true);
+            wk9Button.setText("Week 9");
+            long finalTime = SystemClock.elapsedRealtime() - week9StartTime;
+            long minutes = (finalTime / 1000) / 60;
+            long seconds = (finalTime / 1000) % 60;
+            long centiseconds = (finalTime % 1000) / 10;
+            appendMessage(String.format("Week 9 task completed in %02d:%02d.%02d",
+                    minutes, seconds, centiseconds));
+        }
+    }
+
+    private void resetWeek9Timer() {
+        week9Running = false;
+        timerHandler.removeCallbacks(week9TimerRunnable);
+        wk9Button.setEnabled(true);
+        wk9Button.setText("Week 9");
+        wk9Timer.setText("00:00.00");
+        appendMessage("Week 9 timer reset");
+    }
+
+    private void showWeek8StopConfirmation() {
+        new AlertDialog.Builder(this)
+                .setTitle("Stop Week 8 Timer")
+                .setMessage("Are you sure you want to stop and reset the Week 8 timer?")
+                .setPositiveButton("Stop & Reset", (dialog, which) -> resetWeek8Timer())
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void showWeek9StopConfirmation() {
+        new AlertDialog.Builder(this)
+                .setTitle("Stop Week 9 Timer")
+                .setMessage("Are you sure you want to stop and reset the Week 9 timer?")
+                .setPositiveButton("Stop & Reset", (dialog, which) -> resetWeek9Timer())
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void startWeek8Task() {
+        if (!week8Running) {
+            // Start the task
+            messageHandler.sendCustomCommand("WEEK8_COMMAND");
+            startWeek8Timer();
+        } else {
+            // Show confirmation to stop
+            showWeek8StopConfirmation();
+        }
+    }
+
+    private void startWeek9Task() {
+        if (!week9Running) {
+            // Start the task
+            messageHandler.sendCustomCommand("WEEK9_COMMAND");
+            startWeek9Timer();
+        } else {
+            // Show confirmation to stop
+            showWeek9StopConfirmation();
+        }
     }
 
     private void initViews() {
@@ -206,6 +364,7 @@ public class MainActivity extends AppCompatActivity implements
 
         sendButton.setOnClickListener(v -> sendChatMessage());
 
+        // Modified timer button listeners to start real timers
         wk8Button.setOnClickListener(v -> startWeek8Task());
         wk9Button.setOnClickListener(v -> startWeek9Task());
 
@@ -222,6 +381,10 @@ public class MainActivity extends AppCompatActivity implements
         rotateRobotCarToDirection(robotManager.getRobotDirection());
         updateObjectPlacement();
         checkBluetoothSupport();
+
+        // Initialize timer displays
+        wk8Timer.setText("00:00.00");
+        wk9Timer.setText("00:00.00");
     }
 
     private void setupDragAndDrop() {
@@ -247,6 +410,7 @@ public class MainActivity extends AppCompatActivity implements
         dragDropManager.setTargetGrid(customGrid);
         customGrid.bringToFront();
     }
+
     private void setupCoordinateLabels() {
         // Clear any existing content
         coordinateGrid.removeAllViews();
@@ -308,7 +472,6 @@ public class MainActivity extends AppCompatActivity implements
 
         return cell;
     }
-
 
     //  BLUETOOTH MANAGER CALLBACKS
     @Override
@@ -381,7 +544,6 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     // ROBOT MANAGER CALLBACKS
-
     @Override
     public void onRobotMoved(int oldX, int oldY, int newX, int newY, String direction) {
         moveViewToGridCell(robotCar, newX, newY);
@@ -409,6 +571,18 @@ public class MainActivity extends AppCompatActivity implements
         objectManager.setObjectDirection(objectType, direction);
         appendMessage("Received position update: " + objectType + " at (" + x + "," + y + "," + direction + ")");
     }
+
+    // NEW TIMER CALLBACKS - These handle the completion messages
+    @Override
+    public void onWeek8TaskDone() {
+        runOnUiThread(() -> stopWeek8Timer());
+    }
+
+    @Override
+    public void onWeek9TaskDone() {
+        runOnUiThread(() -> stopWeek9Timer());
+    }
+
     private void rotateRobotCarToDirection(String direction) {
         float targetRotation = 0f;
 
@@ -424,6 +598,7 @@ public class MainActivity extends AppCompatActivity implements
                 .setDuration(50)
                 .start();
     }
+
     @Override
     public void onRobotPositionChanged(int x, int y, String direction) {
         updateRobotPosition();
@@ -758,26 +933,6 @@ public class MainActivity extends AppCompatActivity implements
         coordPreview.setText(coordinates);
         coordPreview.setVisibility(View.VISIBLE);
         coordPreview.postDelayed(() -> coordPreview.setVisibility(View.GONE), 2000);
-    }
-
-    private void startWeek8Task() {
-        appendMessage("Week 8 task started");
-        messageHandler.sendCustomCommand("WEEK8_COMMAND");
-        wk8Timer.setText("Running...");
-        wk8Timer.postDelayed(() -> {
-            wk8Timer.setText("00:01:30");
-//            appendMessage("Week 8 task completed in 1:30");
-        }, 2000);
-    }
-
-    private void startWeek9Task() {
-        appendMessage("Week 9 task started");
-        messageHandler.sendCustomCommand("WEEK9_COMMAND");
-        wk9Timer.setText("Running...");
-        wk9Timer.postDelayed(() -> {
-            wk9Timer.setText("00:02:15");
-//            appendMessage("Week 9 task completed in 2:15");
-        }, 3000);
     }
 
     private void appendMessage(String msg) {
