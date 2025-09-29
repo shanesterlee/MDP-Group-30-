@@ -56,100 +56,77 @@ def handle_android_command(msg: str):
 # Chat Session
 # ----------------------------
 def chat_session(client_sock, client_info):
-    """Handle one chat session with Android"""
     print(f"[RPi] Connected to {client_info}")
-    stop_flag = [False]
 
-    def receive_messages(sock, stop_flag):
-        while not stop_flag[0]:
+    def receive_messages(sock):
+        while True:
             try:
                 data = sock.recv(1024).decode("utf-8")
                 if not data:
-                    print("\n[Android disconnected]")
-                    stop_flag[0] = True
-                    break
-                if data.strip().lower() in ["exit", "quit"]:
-                    print("\n[Android ended the chat]")
-                    stop_flag[0] = True
+                    print("[Android disconnected]")
                     break
 
-                print(f"\n[Android] {data}")
+                print(f"[Android] {data}")
 
-                # Handle STM command mapping
                 if handle_android_command(data):
-                    print(f"[RPi] Forwarded Android cmd → STM")
+                    print("[RPi] Forwarded Android cmd → STM")
                 else:
                     print("[RPi] No mapping for this message")
 
-            except OSError:
-                print("\n[Android connection lost]")
-                stop_flag[0] = True
+            except (OSError, IOError):
+                print("[RPi] Connection lost")
                 break
 
-    # Receiver thread
-    recv_thread = threading.Thread(target=receive_messages, args=(client_sock, stop_flag))
+        try:
+            sock.close()
+        except:
+            pass
+        print("[RPi] Session closed")
+
+    # Run receiver thread
+    recv_thread = threading.Thread(target=receive_messages, args=(client_sock,))
     recv_thread.daemon = True
     recv_thread.start()
 
-    try:
-        while not stop_flag[0]:
-            msg = input("[RPi] > ")
-            if msg.strip().lower() in ["exit", "quit"]:
-                try:
-                    client_sock.send("[RPi disconnected]".encode("utf-8"))
-                except:
-                    pass
-                print("[RPi ended the chat]")
-                stop_flag[0] = True
-                break
-            client_sock.send(msg.encode("utf-8"))
-    except KeyboardInterrupt:
-        print("\n[RPi] Chat interrupted")
-        stop_flag[0] = True
-
-    try:
-        client_sock.shutdown(2)
-    except:
-        pass
-    client_sock.close()
-    print("[RPi] Session closed\n")
+    # Keep main loop alive until receiver ends
+    while recv_thread.is_alive():
+        time.sleep(0.5)
 
 # ----------------------------
 # Main Bluetooth Server
 # ----------------------------
 def main():
     global running
-    server_sock = BluetoothSocket(RFCOMM)
-    server_sock.bind(("", PORT_ANY))
-    server_sock.listen(1)
-
-    port = server_sock.getsockname()[1]
     uuid = "00001101-0000-1000-8000-00805F9B34FB"
 
-    advertise_service(
-        server_sock,
-        "RPI-BT-Chat",
-        service_id=uuid,
-        service_classes=[uuid, SERIAL_PORT_CLASS],
-        profiles=[SERIAL_PORT_PROFILE],
-    )
+    while running:
+        try:
+            server_sock = BluetoothSocket(RFCOMM)
+            server_sock.bind(("", PORT_ANY))
+            server_sock.listen(1)
 
-    print(f"[RPi] Bluetooth chat server running on RFCOMM channel {port}...")
-    print("[RPi] Press CTRL+C anytime to quit the server.\n")
+            port = server_sock.getsockname()[1]
+            advertise_service(
+                server_sock,
+                "RPI-BT-Chat",
+                service_id=uuid,
+                service_classes=[uuid, SERIAL_PORT_CLASS],
+                profiles=[SERIAL_PORT_PROFILE],
+            )
 
-    try:
-        while running:
-            print("[RPi] Waiting for connection...")
+            print(f"[RPi] Listening on RFCOMM channel {port}...")
+
+            client_sock, client_info = server_sock.accept()
+            chat_session(client_sock, client_info)
+
+        except Exception as e:
+            print(f"[ERROR] {e}, retrying in 2s...")
+            time.sleep(2)
+        finally:
             try:
-                client_sock, client_info = server_sock.accept()
-                chat_session(client_sock, client_info)
-                # after session ends, loop back and wait again
-            except OSError:
-                break
-    finally:
-        server_sock.close()
-        print("[RPi] Server shut down")
+                server_sock.close()
+            except:
+                pass
 
 if __name__ == "__main__":
     main()
-
