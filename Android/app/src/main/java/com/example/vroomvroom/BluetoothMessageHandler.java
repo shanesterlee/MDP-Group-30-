@@ -9,6 +9,8 @@ public class BluetoothMessageHandler {
         void onTargetUpdate(String objectType, int targetId);
         void onRobotPositionUpdate(int x, int y, String direction);
         void onObjectPositionUpdate(String objectType, int x, int y, String direction);
+        void onWeek8TaskDone(); // New callback for Week 8 task completion
+        void onWeek9TaskDone(); // New callback for Week 9 task completion
     }
 
     private BluetoothMessageListener listener;
@@ -88,6 +90,11 @@ public class BluetoothMessageHandler {
             listener.onStatusMessage("Received: " + trimmedMessage);
         }
 
+        // Check for task completion messages first
+        if (parseTaskCompletionMessage(trimmedMessage)) {
+            return;
+        }
+
         // Try to parse as TARGET message first
         if (parseTargetMessage(trimmedMessage)) {
             return;
@@ -107,6 +114,29 @@ public class BluetoothMessageHandler {
         if (listener != null) {
             listener.onStatusMessage("General message received: " + trimmedMessage);
         }
+    }
+
+    // New method to parse task completion messages
+    private boolean parseTaskCompletionMessage(String message) {
+        String upperMessage = message.toUpperCase();
+
+        if (upperMessage.equals("WEEK8_TASK_DONE")) {
+            if (listener != null) {
+                listener.onWeek8TaskDone();
+                listener.onStatusMessage("Week 8 task completed!");
+            }
+            return true;
+        }
+
+        if (upperMessage.equals("WEEK9_TASK_DONE")) {
+            if (listener != null) {
+                listener.onWeek9TaskDone();
+                listener.onStatusMessage("Week 9 task completed!");
+            }
+            return true;
+        }
+
+        return false;
     }
 
     private boolean parseTargetMessage(String message) {
