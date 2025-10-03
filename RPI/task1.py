@@ -1,152 +1,158 @@
-#!/usr/bin/env python3
-import time, threading, requests
-from flask import Flask, jsonify
-from bluetooth import *
+#Used for task A5. Takes picture and gets image recognition from PC via the model.
+#Hosted on RPI
+import cv2
+import os
+import serial
+import time
+import threading
+import subprocess
+from flask import Flask, Response, send_file, request, jsonify
+import serial.serialutil
+import json
 
 # ----------------------------
-# CONFIG
+# Kill conflicting processes
 # ----------------------------
-PC_URL = "http://192.168.30.15:5005/from_rpi"   # PC Algorithm Server endpoint
-RPi_PORT = 5000
-running = True
+def cleanup():
+    print("[SYS] Cleaning up old processes...")
+    try:
+        subprocess.run(["sudo", "fuser", "-k", "/dev/ttyACM0"], check=False)
+        subprocess.run(["sudo", "fuser", "-k", "5000/tcp"], check=False)
+        subprocess.run(["sudo", "fuser", "-k", "/dev/video0"], check=False)
+    except Exception as e:
+        print(f"[WARN] Cleanup failed: {e}")
 
-# ----------------------------
-# Global State
-# ----------------------------
-objects = [[-1, -1, "N"] for _ in range(8)]  # 8 slots default
-last_msg = None
-last_reply = None
+cleanup()
 
 # ----------------------------
 # Flask Setup
 # ----------------------------
 app = Flask(__name__)
+last_photo = "photo.jpg"
 
-@app.route("/status", methods=["GET"])
-def status():
-    return jsonify({"status": "RPi Server online"})
+# Initialize camera
+cap = cv2.VideoCapture(0)
+if not cap.isOpened():
+    print("[ERROR] Could not open camera. Exiting.")
+    exit(1)
 
-@app.route("/get_last_msg", methods=["GET"])
-def get_last_msg():
-    if last_msg:
-        return jsonify({"last_msg": last_msg}), 200
-    return jsonify({"error": "no message yet"}), 404
-
-@app.route("/get_last_reply", methods=["GET"])
-def get_last_reply():
-    if last_reply:
-        return jsonify({"last_reply": last_reply}), 200
-    return jsonify({"error": "no reply yet"}), 404
+# Serial port for STM
+try:
+    ser = serial.Serial("/dev/ttyACM0", baudrate=115200, timeout=1)
+    time.sleep(2)  # STM resets on port open
+except Exception as e:
+    print(f"[ERROR] Could not open serial port: {e}")
+    exit(1)
 
 # ----------------------------
-# Helpers
+# Camera Functions
 # ----------------------------
-def forward_to_pc(payload):
-    """Send payload to PC algorithm server"""
-    global last_reply
+def generate_frames():
+    """Stream live camera frames as MJPEG."""
+    while True:
+        success, frame = cap.read()
+        if not success:
+            continue
+        ret, buffer = cv2.imencode('.jpg', frame)
+        frame_bytes = buffer.tobytes()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+# ----------------------------
+# Algo Instructions Endpoint
+# ----------------------------
+@app.route('/algo_instructions', methods=['POST'])
+def algo_instructions():
+    """
+    Receives JSON with decision from PC/algorithm.
+    If decision is 'snapshot', captures photo and returns it.
+    Otherwise, forwards decision to STM and returns STM's response.
+    
+    Expected JSON format: {"decision": "snapshot"} or {"decision": "forward/left/right/etc"}
+    """
     try:
-        print(f"[RPi -> PC] Sending: {payload}")
-        resp = requests.post(PC_URL, json=payload, timeout=10)
-        if resp.ok:
-            last_reply = resp.json()
-            print(f"[PC -> RPi] Response: {last_reply}")
+        # Parse incoming JSON
+        data = request.get_json()
+        if not data or 'decision' not in data:
+            return jsonify({"error": "Missing 'decision' field in JSON"}), 400
+        
+        decision = data['decision'].strip().lower()
+        print(f"[ALGO] Received decision: {decision}")
+        
+        # Case 1: Snapshot request
+        if decision == "snapshot":
+            success, frame = cap.read()
+            if success:
+                cv2.imwrite(last_photo, frame)
+                print(f"[ALGO] Snapshot captured as {last_photo}")
+                # Return the photo file
+                return send_file(last_photo, mimetype='image/jpeg')
+            else:
+                return jsonify({"error": "Failed to capture photo"}), 500
+        
+        # Case 2: Forward to STM
         else:
-            print(f"[ERROR] PC API error {resp.status_code}: {resp.text}")
-    except Exception as e:
-        print(f"[ERROR] Could not contact PC API: {e}")
-
-def update_object(msg):
-    """Parse OBJECT commands or handle Y from Android"""
-    global objects
-
-    if msg.strip().upper() == "Y":
-        # Finalize and send all objects
-        payload = {"objects": objects}
-        forward_to_pc(payload)
-        return
-
-    # Example: OBJECT4, 12, 3, S
-    try:
-        parts = [p.strip() for p in msg.split(",")]
-        if len(parts) != 4:
-            print(f"[WARN] Invalid format: {msg}")
-            return
-
-        obj_str, x, y, d = parts
-        if not obj_str.upper().startswith("OBJECT"):
-            print(f"[WARN] Unknown command: {msg}")
-            return
-
-        idx = int(obj_str.replace("OBJECT", "")) - 1  # OBJECT4 -> index 3
-        if 0 <= idx < 8:
-            objects[idx] = [int(x), int(y), d.upper()]
-            print(f"[RPi] Updated {obj_str}: {objects[idx]}")
-        else:
-            print(f"[WARN] Invalid object index: {obj_str}")
-
-    except Exception as e:
-        print(f"[ERROR] Failed to parse object msg '{msg}': {e}")
-
-# ----------------------------
-# Bluetooth Handling
-# ----------------------------
-def chat_session(client_sock, client_info):
-    global last_msg
-    print(f"[BT] Connected to {client_info}")
-    try:
-        while True:
-            data = client_sock.recv(1024).decode("utf-8").strip()
-            if not data:
-                break
-            last_msg = data
-            print(f"[Android -> RPi] {data}")
-            update_object(data)
-    except Exception as e:
-        print(f"[BT ERROR] {e}")
-    finally:
-        client_sock.close()
-        print("[BT] Session closed")
-
-def bluetooth_server():
-    uuid = "00001101-0000-1000-8000-00805F9B34FB"
-    while running:
-        try:
-            server_sock = BluetoothSocket(RFCOMM)
-            server_sock.bind(("", PORT_ANY))
-            server_sock.listen(1)
-
-            port = server_sock.getsockname()[1]
-            advertise_service(
-                server_sock,
-                "RPI-BT-Chat",
-                service_id=uuid,
-                service_classes=[uuid, SERIAL_PORT_CLASS],
-                profiles=[SERIAL_PORT_PROFILE],
-            )
-
-            print(f"[BT] Listening on RFCOMM channel {port}...")
-            client_sock, client_info = server_sock.accept()
-            chat_session(client_sock, client_info)
-
-        except Exception as e:
-            print(f"[BT ERROR] {e}, retrying in 2s...")
-            time.sleep(2)
-        finally:
             try:
-                server_sock.close()
-            except:
-                pass
+                # Send decision to STM
+                ser.write((decision + "\n").encode())
+                print(f"[ALGO] Forwarded to STM: {decision}")
+                
+                # Wait for STM response (with timeout)
+                start_time = time.time()
+                timeout = 5  # 5 second timeout
+                stm_response = ""
+                
+                while time.time() - start_time < timeout:
+                    if ser.in_waiting > 0:
+                        stm_response = ser.readline().decode(errors="ignore").strip()
+                        if stm_response:
+                            print(f"[ALGO] STM responded: {stm_response}")
+                            break
+                    time.sleep(0.1)
+                
+                if not stm_response:
+                    return jsonify({
+                        "message": "STM did not respond in time"
+                    }), 408
+                
+                # Return STM's response as JSON
+                return jsonify({
+                    "stm_response": stm_response
+                }), 200
+                
+            except Exception as e:
+                return jsonify({"error": f"Serial communication error: {e}"}), 500
+    
+    except Exception as e:
+        return jsonify({"error": f"Processing error: {e}"}), 500
+
+# ----------------------------
+# STM Communication Loop
+# ----------------------------
+def stm_loop():
+    """Continuously listen to STM and forward whatever it says."""
+    print("[STM] Listener started. Forwarding all STM messages...")
+
+    while True:
+        try:
+            line = ser.readline().decode(errors="ignore").strip()
+            if line:
+                print(f"[STM] {line}")
+        except serial.serialutil.SerialException as e:
+            print(f"[ERROR] Serial read failed: {e}")
+            time.sleep(1)
+            continue
 
 # ----------------------------
 # Main
 # ----------------------------
 if __name__ == "__main__":
-    # Start Flask server in background
+    # Start Flask in background thread
     flask_thread = threading.Thread(
-        target=lambda: app.run(host="0.0.0.0", port=RPi_PORT, debug=False),
+        target=lambda: app.run(host="0.0.0.0", port=5000, debug=False),
         daemon=True
     )
     flask_thread.start()
 
-    # Run Bluetooth listener in main thread
-    bluetooth_server()
+    # Run STM listener in main thread
+    stm_loop()
