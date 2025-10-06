@@ -1,3 +1,4 @@
+// MainActivity.java
 package com.example.vroomvroom;
 
 import android.app.AlertDialog;
@@ -50,8 +51,8 @@ public class MainActivity extends AppCompatActivity implements
     private Button sendButton;
     private TableLayout coordinateGrid;
 
-    // Object views
-    private View object1, object2, object3, object4;
+    // Object views - EXPANDED TO 8
+    private View object1, object2, object3, object4, object5, object6, object7, object8;
     private View robotCar;
     private TextView coordPreview;
 
@@ -78,6 +79,10 @@ public class MainActivity extends AppCompatActivity implements
     private float[] object2OriginalPos = new float[2];
     private float[] object3OriginalPos = new float[2];
     private float[] object4OriginalPos = new float[2];
+    private float[] object5OriginalPos = new float[2];
+    private float[] object6OriginalPos = new float[2];
+    private float[] object7OriginalPos = new float[2];
+    private float[] object8OriginalPos = new float[2];
     private float[] robotCarOriginalPos = new float[2];
 
     @Override
@@ -99,13 +104,11 @@ public class MainActivity extends AppCompatActivity implements
         if (directionDialog != null) {
             directionDialog.dismiss();
         }
-        // Clean up timer handlers
         timerHandler.removeCallbacks(week8TimerRunnable);
         timerHandler.removeCallbacks(week9TimerRunnable);
     }
 
     private void initializeManagers() {
-        // Initialize all manager classes
         dragDropManager = new DragDropManager();
         dragDropManager.setEventListener(this);
 
@@ -126,26 +129,24 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     private void setupTimerRunnables() {
-        // Week 8 timer runnable
         week8TimerRunnable = new Runnable() {
             @Override
             public void run() {
                 if (week8Running) {
                     long elapsedTime = SystemClock.elapsedRealtime() - week8StartTime;
                     updateTimerDisplay(wk8Timer, elapsedTime);
-                    timerHandler.postDelayed(this, 100); // Update every 100ms for smooth display
+                    timerHandler.postDelayed(this, 100);
                 }
             }
         };
 
-        // Week 9 timer runnable
         week9TimerRunnable = new Runnable() {
             @Override
             public void run() {
                 if (week9Running) {
                     long elapsedTime = SystemClock.elapsedRealtime() - week9StartTime;
                     updateTimerDisplay(wk9Timer, elapsedTime);
-                    timerHandler.postDelayed(this, 100); // Update every 100ms for smooth display
+                    timerHandler.postDelayed(this, 100);
                 }
             }
         };
@@ -159,12 +160,11 @@ public class MainActivity extends AppCompatActivity implements
         timerView.setText(timeString);
     }
 
-    // Modified timer methods with stop/reset functionality
     private void startWeek8Timer() {
         if (!week8Running) {
             week8Running = true;
             week8StartTime = SystemClock.elapsedRealtime();
-            wk8Button.setEnabled(true); // Keep enabled for stopping
+            wk8Button.setEnabled(true);
             wk8Button.setText("Stop");
             timerHandler.post(week8TimerRunnable);
             appendMessage("Week 8 task started - Timer running");
@@ -199,7 +199,7 @@ public class MainActivity extends AppCompatActivity implements
         if (!week9Running) {
             week9Running = true;
             week9StartTime = SystemClock.elapsedRealtime();
-            wk9Button.setEnabled(true); // Keep enabled for stopping
+            wk9Button.setEnabled(true);
             wk9Button.setText("Stop");
             timerHandler.post(week9TimerRunnable);
             appendMessage("Week 9 task started - Timer running");
@@ -250,22 +250,18 @@ public class MainActivity extends AppCompatActivity implements
 
     private void startWeek8Task() {
         if (!week8Running) {
-            // Start the task
             messageHandler.sendCustomCommand("WEEK8_COMMAND");
             startWeek8Timer();
         } else {
-            // Show confirmation to stop
             showWeek8StopConfirmation();
         }
     }
 
     private void startWeek9Task() {
         if (!week9Running) {
-            // Start the task
             messageHandler.sendCustomCommand("WEEK9_COMMAND");
             startWeek9Timer();
         } else {
-            // Show confirmation to stop
             showWeek9StopConfirmation();
         }
     }
@@ -280,7 +276,6 @@ public class MainActivity extends AppCompatActivity implements
         chatBox = findViewById(R.id.chat_box_card);
         sendButton = findViewById(R.id.send_button);
 
-        // Initialize the directional buttons
         btnUp = findViewById(R.id.btn_up);
         btnDown = findViewById(R.id.btn_down);
         btnLeft = findViewById(R.id.btn_left);
@@ -291,20 +286,24 @@ public class MainActivity extends AppCompatActivity implements
         wk9Button = findViewById(R.id.wk9button);
         wk9Timer = findViewById(R.id.wk9timer);
 
+        // EXPANDED TO 8 OBJECTS
         object1 = findViewById(R.id.object1);
         object2 = findViewById(R.id.object2);
         object3 = findViewById(R.id.object3);
         object4 = findViewById(R.id.object4);
+        object5 = findViewById(R.id.object5);
+        object6 = findViewById(R.id.object6);
+        object7 = findViewById(R.id.object7);
+        object8 = findViewById(R.id.object8);
+
         robotCar = findViewById(R.id.robot_car);
         coordPreview = findViewById(R.id.coord_preview);
         customGrid = findViewById(R.id.grid);
         coordinateGrid = findViewById(R.id.coordinate_grid);
         clearPathButton = findViewById(R.id.clear_path_button);
 
-        // Initialize object manager with views
         objectManager.initializeViews(findViewById(R.id.MainFragment));
 
-        // Setup message box
         messageBox.setMovementMethod(new ScrollingMovementMethod());
     }
 
@@ -317,58 +316,40 @@ public class MainActivity extends AppCompatActivity implements
             }
         });
 
-        robotPositionValue.setOnClickListener(v -> {
-//            appendMessage("Robot position checked → " + robotManager.getRobotPositionString() +
-//                    " | Connection: " + (bluetoothManager.isConnected() ?
-//                    "Connected to " + bluetoothManager.getConnectedDeviceName() : "Disconnected"));
-        });
-
+        robotPositionValue.setOnClickListener(v -> {});
         objectPlacementValue.setOnClickListener(v -> {
-//            appendMessage("Current object: " + currentObject);
             if (!currentObject.equals("None")) {
                 showCoordinatePreview(currentObject);
             }
         });
 
-        // Clear Grid path button listener
         clearPathButton.setOnClickListener(v -> clearRobotPath());
 
-        // Setup individual directional button listeners
         btnUp.setOnClickListener(v -> {
             messageHandler.sendRobotMovementCommand("FORWARD");
-            if (robotManager.moveRobotInDirection("N")) { // N = Forward relative to robot
-//                appendMessage("Up button pressed - Robot moved forward to " + robotManager.getRobotPositionString());
-            }
+            if (robotManager.moveRobotInDirection("N")) {}
         });
 
         btnDown.setOnClickListener(v -> {
             messageHandler.sendRobotMovementCommand("BACK");
-            if (robotManager.moveRobotInDirection("S")) { // S = Backward relative to robot
-//                appendMessage("Down button pressed - Robot moved backward to " + robotManager.getRobotPositionString());
-            }
+            if (robotManager.moveRobotInDirection("S")) {}
         });
 
         btnLeft.setOnClickListener(v -> {
             messageHandler.sendRobotMovementCommand("LEFT");
-            if (robotManager.moveRobotInDirection("W")) { // W = Left turn relative to robot
-//                appendMessage("Left button pressed - Robot turned left to " + robotManager.getRobotPositionString());
-            }
+            if (robotManager.moveRobotInDirection("W")) {}
         });
 
         btnRight.setOnClickListener(v -> {
             messageHandler.sendRobotMovementCommand("RIGHT");
-            if (robotManager.moveRobotInDirection("E")) { // E = Right turn relative to robot
-//                appendMessage("Right button pressed - Robot turned right to " + robotManager.getRobotPositionString());
-            }
+            if (robotManager.moveRobotInDirection("E")) {}
         });
 
         sendButton.setOnClickListener(v -> sendChatMessage());
 
-        // Modified timer button listeners to start real timers
         wk8Button.setOnClickListener(v -> startWeek8Task());
         wk9Button.setOnClickListener(v -> startWeek9Task());
 
-        // Setup drag and drop
         setupDragAndDrop();
     }
 
@@ -382,7 +363,6 @@ public class MainActivity extends AppCompatActivity implements
         updateObjectPlacement();
         checkBluetoothSupport();
 
-        // Initialize timer displays
         wk8Timer.setText("00:00.00");
         wk9Timer.setText("00:00.00");
     }
@@ -393,42 +373,36 @@ public class MainActivity extends AppCompatActivity implements
         object2.setOnTouchListener(dragDropManager.createDragTouchListener("OBJECT2"));
         object3.setOnTouchListener(dragDropManager.createDragTouchListener("OBJECT3"));
         object4.setOnTouchListener(dragDropManager.createDragTouchListener("OBJECT4"));
+        object5.setOnTouchListener(dragDropManager.createDragTouchListener("OBJECT5"));
+        object6.setOnTouchListener(dragDropManager.createDragTouchListener("OBJECT6"));
+        object7.setOnTouchListener(dragDropManager.createDragTouchListener("OBJECT7"));
+        object8.setOnTouchListener(dragDropManager.createDragTouchListener("OBJECT8"));
     }
 
     private void clearRobotPath() {
         customGrid.clearPath();
-//        appendMessage("Robot path cleared - " + customGrid.getVisitedCellCount() + " cells highlighted");
     }
 
     private void setupCustomGrid() {
-        // Set up the CustomGridView to align with TableLayout
         customGrid.setTableLayoutReference(coordinateGrid);
-
-        // Initialize robot position and mark starting cell as visited
         customGrid.setRobotPosition(robotManager.getRobotX(), robotManager.getRobotY());
-
         dragDropManager.setTargetGrid(customGrid);
         customGrid.bringToFront();
     }
 
     private void setupCoordinateLabels() {
-        // Clear any existing content
         coordinateGrid.removeAllViews();
 
-        // Create data rows first (Y coordinates + 20 grid cells each)
-        // Start from Y=19 at the top and go down to Y=0 at the bottom
         for (int y = 19; y >= 0; y--) {
             TableRow dataRow = new TableRow(this);
             dataRow.setLayoutParams(new TableLayout.LayoutParams(
                     TableLayout.LayoutParams.MATCH_PARENT,
                     0, 1.0f));
 
-            // Y-axis label
             TextView yLabel = createCoordinateCell(String.valueOf(y));
             yLabel.setBackgroundColor(0xFFF0F0F0);
             dataRow.addView(yLabel);
 
-            // Grid cells made transparent so CustomGridView shows
             for (int x = 0; x < 20; x++) {
                 TextView gridCell = createCoordinateCell("");
                 gridCell.setBackgroundColor(0x00000000);
@@ -438,18 +412,15 @@ public class MainActivity extends AppCompatActivity implements
             coordinateGrid.addView(dataRow);
         }
 
-        // Create bottom row with X coordinates (0-19) at the bottom
         TableRow bottomRow = new TableRow(this);
         bottomRow.setLayoutParams(new TableLayout.LayoutParams(
                 TableLayout.LayoutParams.MATCH_PARENT,
                 0, 1.0f));
 
-        // Empty corner cell
         TextView cornerCell = createCoordinateCell("");
         cornerCell.setBackgroundColor(0xFFE8E8E8);
         bottomRow.addView(cornerCell);
 
-        // X-axis labels (0 to 19) at the bottom
         for (int x = 0; x < 20; x++) {
             TextView xLabel = createCoordinateCell(String.valueOf(x));
             xLabel.setBackgroundColor(0xFFF0F0F0);
@@ -473,7 +444,7 @@ public class MainActivity extends AppCompatActivity implements
         return cell;
     }
 
-    //  BLUETOOTH MANAGER CALLBACKS
+    // BLUETOOTH MANAGER CALLBACKS
     @Override
     public void onConnectionStatusChanged(boolean connected, String deviceName) {
         runOnUiThread(() -> updateConnectionStatus());
@@ -525,8 +496,6 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onObjectDirectionChanged(String objectType, String direction) {
-//        appendMessage("Object " + objectType + " direction changed to: " + direction);
-        // Send updated position with new direction
         if (objectManager.isObjectPlaced(objectType)) {
             messageHandler.sendObjectPosition(objectType,
                     objectManager.getObjectX(objectType),
@@ -547,10 +516,9 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     public void onRobotMoved(int oldX, int oldY, int newX, int newY, String direction) {
         moveViewToGridCell(robotCar, newX, newY);
-//        appendMessage("Robot moved from (" + oldX + "," + oldY + ") to (" + newX + "," + newY + ")");
     }
 
-    //BLUETOOTH MESSAGE HANDLER CALLBACKS
+    // BLUETOOTH MESSAGE HANDLER CALLBACKS
     @Override
     public void onSendMessage(String message) {
         if (bluetoothManager.isConnected()) {
@@ -572,7 +540,6 @@ public class MainActivity extends AppCompatActivity implements
         appendMessage("Received position update: " + objectType + " at (" + x + "," + y + "," + direction + ")");
     }
 
-    // NEW TIMER CALLBACKS - These handle the completion messages
     @Override
     public void onWeek8TaskDone() {
         runOnUiThread(() -> stopWeek8Timer());
@@ -630,11 +597,9 @@ public class MainActivity extends AppCompatActivity implements
     // DIRECTION DIALOG CALLBACKS
     @Override
     public void onDirectionSelected(String itemName, String direction) {
-//        appendMessage("Direction selected: " + itemName + " → " + direction);
-
         if (itemName.equals("Robot Car")) {
             robotManager.setRobotDirection(direction);
-            rotateRobotCarToDirection(direction); // Add this line
+            rotateRobotCarToDirection(direction);
         } else {
             String objectType = getObjectTypeFromDisplayName(itemName);
             if (objectType != null) {
@@ -644,19 +609,14 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     @Override
-    public void onDirectionCancelled(String itemName) {
-//        appendMessage("Direction selection cancelled for " + itemName);
-    }
+    public void onDirectionCancelled(String itemName) {}
 
     // DRAG DROP CALLBACKS
     @Override
-    public void onDragMessage(String message) {
-//        appendMessage(message);
-    }
+    public void onDragMessage(String message) {}
 
     @Override
     public void onItemDropped(String itemName, float x, float y) {
-        // to handle items dropped outside grid
         switch (itemName) {
             case "OBJECT1":
                 returnObjectToOriginalPosition(object1, object1OriginalPos, "Object 1");
@@ -674,14 +634,27 @@ public class MainActivity extends AppCompatActivity implements
                 returnObjectToOriginalPosition(object4, object4OriginalPos, "Object 4");
                 objectManager.resetObjectPosition("OBJECT4");
                 break;
+            case "OBJECT5":
+                returnObjectToOriginalPosition(object5, object5OriginalPos, "Object 5");
+                objectManager.resetObjectPosition("OBJECT5");
+                break;
+            case "OBJECT6":
+                returnObjectToOriginalPosition(object6, object6OriginalPos, "Object 6");
+                objectManager.resetObjectPosition("OBJECT6");
+                break;
+            case "OBJECT7":
+                returnObjectToOriginalPosition(object7, object7OriginalPos, "Object 7");
+                objectManager.resetObjectPosition("OBJECT7");
+                break;
+            case "OBJECT8":
+                returnObjectToOriginalPosition(object8, object8OriginalPos, "Object 8");
+                objectManager.resetObjectPosition("OBJECT8");
+                break;
             case "CAR":
-                // Return robot car to original position
                 returnObjectToOriginalPosition(robotCar, robotCarOriginalPos, "Robot Car");
-                // Reset logical position to indicate it's not on the grid
-                robotManager.setRobotPosition(-1, -1); // Use -1,-1 to indicate not on grid
-                customGrid.setRobotPosition(-1, -1); // Update grid visualization to show no robot
+                robotManager.setRobotPosition(-1, -1);
+                customGrid.setRobotPosition(-1, -1);
                 messageHandler.sendRobotPosition(-1, -1, robotManager.getRobotDirection());
-//                appendMessage("Robot dropped outside grid - returned to original position");
                 break;
         }
         updateObjectPlacement();
@@ -693,32 +666,47 @@ public class MainActivity extends AppCompatActivity implements
             case "CAR":
                 robotManager.setRobotPosition(gridX, gridY);
                 moveViewToGridCell(robotCar, gridX, gridY);
-                customGrid.setRobotPosition(gridX, gridY); //
-//                appendMessage("Robot moved to grid position (" + gridX + ", " + gridY + ")");
+                customGrid.setRobotPosition(gridX, gridY);
                 break;
             case "OBJECT1":
                 objectManager.setObjectPosition("OBJECT1", gridX, gridY);
                 currentObject = "Object 1";
                 moveViewToGridCell(object1, gridX, gridY);
-//                appendMessage("Object 1 placed at grid position (" + gridX + ", " + gridY + ")");
                 break;
             case "OBJECT2":
                 objectManager.setObjectPosition("OBJECT2", gridX, gridY);
                 currentObject = "Object 2";
                 moveViewToGridCell(object2, gridX, gridY);
-//                appendMessage("Object 2 placed at grid position (" + gridX + ", " + gridY + ")");
                 break;
             case "OBJECT3":
                 objectManager.setObjectPosition("OBJECT3", gridX, gridY);
                 currentObject = "Object 3";
                 moveViewToGridCell(object3, gridX, gridY);
-//                appendMessage("Object 3 placed at grid position (" + gridX + ", " + gridY + ")");
                 break;
             case "OBJECT4":
                 objectManager.setObjectPosition("OBJECT4", gridX, gridY);
                 currentObject = "Object 4";
                 moveViewToGridCell(object4, gridX, gridY);
-//                appendMessage("Object 4 placed at grid position (" + gridX + ", " + gridY + ")");
+                break;
+            case "OBJECT5":
+                objectManager.setObjectPosition("OBJECT5", gridX, gridY);
+                currentObject = "Object 5";
+                moveViewToGridCell(object5, gridX, gridY);
+                break;
+            case "OBJECT6":
+                objectManager.setObjectPosition("OBJECT6", gridX, gridY);
+                currentObject = "Object 6";
+                moveViewToGridCell(object6, gridX, gridY);
+                break;
+            case "OBJECT7":
+                objectManager.setObjectPosition("OBJECT7", gridX, gridY);
+                currentObject = "Object 7";
+                moveViewToGridCell(object7, gridX, gridY);
+                break;
+            case "OBJECT8":
+                objectManager.setObjectPosition("OBJECT8", gridX, gridY);
+                currentObject = "Object 8";
+                moveViewToGridCell(object8, gridX, gridY);
                 break;
         }
         updateObjectPlacement();
@@ -730,25 +718,36 @@ public class MainActivity extends AppCompatActivity implements
             case "OBJECT1":
                 currentObject = "Object 1";
                 updateObjectPlacement();
-//                appendMessage("Object picked up: " + currentObject);
                 break;
             case "OBJECT2":
                 currentObject = "Object 2";
                 updateObjectPlacement();
-//                appendMessage("Object picked up: " + currentObject);
                 break;
             case "OBJECT3":
                 currentObject = "Object 3";
                 updateObjectPlacement();
-//                appendMessage("Object picked up: " + currentObject);
                 break;
             case "OBJECT4":
                 currentObject = "Object 4";
                 updateObjectPlacement();
-//                appendMessage("Object picked up: " + currentObject);
+                break;
+            case "OBJECT5":
+                currentObject = "Object 5";
+                updateObjectPlacement();
+                break;
+            case "OBJECT6":
+                currentObject = "Object 6";
+                updateObjectPlacement();
+                break;
+            case "OBJECT7":
+                currentObject = "Object 7";
+                updateObjectPlacement();
+                break;
+            case "OBJECT8":
+                currentObject = "Object 8";
+                updateObjectPlacement();
                 break;
             case "CAR":
-//                appendMessage("Robot car selected - Position: " + robotManager.getRobotPositionString());
                 showCoordinatePreview(robotManager.getRobotPositionString());
                 break;
         }
@@ -757,11 +756,10 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     public void onItemDoubleClick(String itemName) {
         String displayName = getDisplayNameFromItemName(itemName);
-//        appendMessage("DOUBLE-CLICK: " + displayName + " - Opening direction selector");
         directionDialog.showDirectionDialog(displayName, itemName);
     }
 
-    //  HELPER METHODS
+    // HELPER METHODS
     private void updateConnectionStatus() {
         if (bluetoothManager.isConnected()) {
             connectionIndicator.setBackgroundColor(0xFF4CAF50);
@@ -792,7 +790,6 @@ public class MainActivity extends AppCompatActivity implements
                         objectManager.getObjectY(objectType) + "," +
                         direction + ")");
             } else if (objectType != null) {
-                // Show direction even when object is not placed on grid
                 String direction = objectManager.getObjectDirection(objectType);
                 objectPlacementValue.setText(currentObject + ": Not placed (" + direction + ")");
             } else {
@@ -821,11 +818,9 @@ public class MainActivity extends AppCompatActivity implements
             float targetX, targetY;
 
             if (view == robotCar) {
-                // For robot car: align bottom-left of view with bottom-left of cell
                 targetX = (gridLocation[0] - mainLocation[0]) + cellPosition[0];
                 targetY = (gridLocation[1] - mainLocation[1]) + cellPosition[1] + cellPosition[3] - view.getHeight();
             } else {
-                // For objects: center in cell (existing behavior)
                 float centerX = cellPosition[0] + cellPosition[2] / 2.0f;
                 float centerY = cellPosition[1] + cellPosition[3] / 2.0f;
                 targetX = (gridLocation[0] - mainLocation[0]) + centerX - (view.getWidth() / 2.0f);
@@ -846,7 +841,6 @@ public class MainActivity extends AppCompatActivity implements
                 .y(originalPos[1])
                 .setDuration(300)
                 .start();
-//        appendMessage(objectName + " returned to original position - dropped outside grid");
     }
 
     private void storeOriginalPositions() {
@@ -866,6 +860,22 @@ public class MainActivity extends AppCompatActivity implements
             object4OriginalPos[0] = object4.getX();
             object4OriginalPos[1] = object4.getY();
         });
+        object5.post(() -> {
+            object5OriginalPos[0] = object5.getX();
+            object5OriginalPos[1] = object5.getY();
+        });
+        object6.post(() -> {
+            object6OriginalPos[0] = object6.getX();
+            object6OriginalPos[1] = object6.getY();
+        });
+        object7.post(() -> {
+            object7OriginalPos[0] = object7.getX();
+            object7OriginalPos[1] = object7.getY();
+        });
+        object8.post(() -> {
+            object8OriginalPos[0] = object8.getX();
+            object8OriginalPos[1] = object8.getY();
+        });
         robotCar.post(() -> {
             robotCarOriginalPos[0] = robotCar.getX();
             robotCarOriginalPos[1] = robotCar.getY();
@@ -878,6 +888,10 @@ public class MainActivity extends AppCompatActivity implements
             case "OBJECT2": return "Object 2";
             case "OBJECT3": return "Object 3";
             case "OBJECT4": return "Object 4";
+            case "OBJECT5": return "Object 5";
+            case "OBJECT6": return "Object 6";
+            case "OBJECT7": return "Object 7";
+            case "OBJECT8": return "Object 8";
             case "CAR": return "Robot Car";
             default: return itemName;
         }
@@ -889,35 +903,34 @@ public class MainActivity extends AppCompatActivity implements
             case "Object 2": return "OBJECT2";
             case "Object 3": return "OBJECT3";
             case "Object 4": return "OBJECT4";
+            case "Object 5": return "OBJECT5";
+            case "Object 6": return "OBJECT6";
+            case "Object 7": return "OBJECT7";
+            case "Object 8": return "OBJECT8";
             default: return null;
         }
     }
 
     private void showBluetoothDiscovery() {
-//        appendMessage("Opening Bluetooth device discovery...");
         BluetoothDiscoveryFragment bluetoothFragment = BluetoothDiscoveryFragment.newInstance();
         bluetoothFragment.show(getSupportFragmentManager(), "bluetooth_discovery");
     }
 
     private void checkBluetoothSupport() {
         if (!bluetoothManager.isBluetoothSupported()) {
-//            appendMessage("Bluetooth not supported on this device");
             connectButton.setEnabled(false);
             return;
         }
 
         if (!bluetoothManager.isBluetoothEnabled()) {
-//            appendMessage("Bluetooth is disabled. Please enable it to connect to devices.");
         }
     }
 
     public void handlePermissionDenied() {
-//        appendMessage("Bluetooth permissions denied. Cannot discover devices.");
         showAlert("Permissions Required", "Bluetooth permissions are required to discover and connect to devices.");
     }
 
     public void handleBluetoothDisabled() {
-//        appendMessage("Bluetooth is disabled. Please enable Bluetooth to discover devices.");
         showAlert("Bluetooth Required", "Bluetooth must be enabled to discover and connect to devices.");
     }
 
@@ -948,7 +961,6 @@ public class MainActivity extends AppCompatActivity implements
         });
     }
 
-    // Device selection handlers (called from BluetoothDiscoveryFragment)
     public void handleDeviceSelected(BluetoothDevice device) {
         Log.d(TAG, "Device selected: " + device.getAddress());
         bluetoothManager.connectToDevice(device);
@@ -956,11 +968,9 @@ public class MainActivity extends AppCompatActivity implements
 
     public void handleDiscoveryCancelled() {
         Log.d(TAG, "Bluetooth discovery cancelled by user");
-//        appendMessage("Bluetooth discovery cancelled");
     }
 
     public void handleDiscoveryRefreshed() {
         Log.d(TAG, "Bluetooth discovery refreshed");
-//        appendMessage("Refreshing device discovery...");
     }
 }
