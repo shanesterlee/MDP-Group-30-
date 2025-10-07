@@ -224,9 +224,9 @@ public class ObjectManager {
 
     // Target ID Management
     public void setObjectTargetId(String objectType, int targetId) {
-        if (targetId < 1 || targetId > 15) {
+        if (targetId < 1 || targetId > 40) {
             if (listener != null) {
-                listener.onStatusMessage("Invalid target ID: " + targetId + ". Must be 1-15.");
+                listener.onStatusMessage("Invalid target ID: " + targetId + ". Must be 1-40.");
             }
             return;
         }

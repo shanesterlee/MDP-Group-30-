@@ -154,18 +154,18 @@ public class BluetoothMessageHandler {
             int obstacleNumber = Integer.parseInt(parts[1].trim());
             int targetId = Integer.parseInt(parts[2].trim());
 
-            // Validate obstacle number (1-4)
-            if (obstacleNumber < 1 || obstacleNumber > 4) {
+            // Validate obstacle number (1-8)
+            if (obstacleNumber < 1 || obstacleNumber > 8) {
                 if (listener != null) {
-                    listener.onStatusMessage("Invalid obstacle number: " + obstacleNumber + " (must be 1-4)");
+                    listener.onStatusMessage("Invalid obstacle number: " + obstacleNumber + " (must be 1-8)");
                 }
                 return false;
             }
 
-            // Validate target ID (1-15)
-            if (targetId < 1 || targetId > 15) {
+            // Validate target ID (1-40)
+            if (targetId < 1 || targetId > 40) {
                 if (listener != null) {
-                    listener.onStatusMessage("Invalid target ID: " + targetId + " (must be 1-15)");
+                    listener.onStatusMessage("Invalid target ID: " + targetId + " (must be 1-40)");
                 }
                 return false;
             }
@@ -265,7 +265,9 @@ public class BluetoothMessageHandler {
 
         // Check if it's a valid object type
         if (!objectType.equals("OBJECT1") && !objectType.equals("OBJECT2") &&
-                !objectType.equals("OBJECT3") && !objectType.equals("OBJECT4")) {
+                !objectType.equals("OBJECT3") && !objectType.equals("OBJECT4") &&
+                !objectType.equals("OBJECT5") && !objectType.equals("OBJECT6") &&
+                !objectType.equals("OBJECT7") && !objectType.equals("OBJECT8"))  {
             return false;
         }
 
@@ -342,11 +344,16 @@ public class BluetoothMessageHandler {
                 upperItemType.equals("OBJECT1") ||
                 upperItemType.equals("OBJECT2") ||
                 upperItemType.equals("OBJECT3") ||
-                upperItemType.equals("OBJECT4");
+                upperItemType.equals("OBJECT4") ||
+                upperItemType.equals("OBJECT5") ||
+                upperItemType.equals("OBJECT6") ||
+                upperItemType.equals("OBJECT7") ||
+                upperItemType.equals("OBJECT8")
+                ;
     }
 
     public boolean isValidTargetMessage(int obstacleNumber, int targetId) {
-        return (obstacleNumber >= 1 && obstacleNumber <= 4) && (targetId >= 1 && targetId <= 15);
+        return (obstacleNumber >= 1 && obstacleNumber <= 8) && (targetId >= 1 && targetId <= 40);
     }
 
     // Status and Debug Methods
