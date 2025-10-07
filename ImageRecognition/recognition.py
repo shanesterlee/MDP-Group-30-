@@ -310,3 +310,5 @@ def main():
 if __name__ == "__main__":
     main()
 
+# To run this code:
+# python recognition.py t9.jpg out.jpg --conf 0.6 --gallery-dir ./run_artifacts/raw_clips --gallery-out ./run_artifacts/raw_gallery.jpg
