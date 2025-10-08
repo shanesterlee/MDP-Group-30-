@@ -1,6 +1,5 @@
-# CODE FOR RPI TO ANDROID BLUETOOTH TALKING CONNECTION
-#Hosted on RPI
-# #!/usr/bin/env python3
+#!/usr/bin/env python3
+
 from bluetooth import *
 import threading
 import sys
@@ -70,20 +69,13 @@ def chat_session(client_sock, client_info):
 def main():
     global running
     server_sock = BluetoothSocket(RFCOMM)
-    server_sock.bind(("", PORT_ANY))
+    server_sock.bind(("", 1))
     server_sock.listen(1)
 
     port = server_sock.getsockname()[1]
     uuid = "00001101-0000-1000-8000-00805F9B34FB"
 
-    advertise_service(
-        server_sock,
-        "RPI-BT-Chat",
-        service_id=uuid,
-        service_classes=[uuid, SERIAL_PORT_CLASS],
-        profiles=[SERIAL_PORT_PROFILE],
-    )
-
+    print("[RPi] Waiting for paired Android to connect (SPP already advertised)...")
     print(f"[RPi] Bluetooth chat server running on RFCOMM channel {port}...")
     print("[RPi] Press CTRL+C anytime to quit the server.\n")
 
@@ -102,5 +94,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
