@@ -28,6 +28,7 @@ import base64
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import logging
+from bt_message_mapper import BTMessageMapper
 
 try:
     from picamera2 import Picamera2
@@ -83,6 +84,11 @@ class RobotState:
             self.robot_pos['x'] = x / 100.0  # STM sends cm, we use meters
             self.robot_pos['y'] = y / 100.0
             logger.info(f"Robot pos updated: {self.robot_pos}")
+        
+        # Notify Android of position update
+        direction_map = {90: 'N', 0: 'E', 270: 'S', 180: 'W'}
+        direction = direction_map.get(heading, 'N')
+        bt_server.send_robot_position(int(x), int(y), direction)
     
     def update_obstacle_image(self, obstacle_id, image_id):
         """Update identified image for an obstacle"""
@@ -92,6 +98,9 @@ class RobotState:
                     obs['image_id'] = image_id
                     self.identified_count += 1
                     logger.info(f"Obstacle {obstacle_id} identified as {image_id}")
+                    
+                    # Notify Android of target update
+                    bt_server.send_target_update(obstacle_id, image_id)
                     return True
         return False
     
@@ -288,6 +297,10 @@ class RPIRequestHandler(BaseHTTPRequestHandler):
             state.task_active = True
             state.identified_count = 0
             logger.info("Task started")
+            
+            # Send all obstacles to Android
+            bt_server.send_all_obstacles()
+            
             self._send_json({'status': 'started'})
         
         elif parsed.path == '/stm_command':
@@ -323,6 +336,7 @@ class RPIRequestHandler(BaseHTTPRequestHandler):
             image_id = data.get('image_id')
             
             if state.update_obstacle_image(obstacle_id, image_id):
+                # Android notification happens inside update_obstacle_image
                 self._send_json({'status': 'ok'})
             else:
                 self._send_json({'error': 'Obstacle not found'}, 404)
@@ -332,6 +346,10 @@ class RPIRequestHandler(BaseHTTPRequestHandler):
             state.task_active = False
             elapsed = time.time() - state.task_start_time if state.task_start_time else 0
             logger.info(f"Task stopped. Elapsed: {elapsed:.1f}s, Identified: {state.identified_count}")
+            
+            # Notify Android of task completion
+            bt_server.send_task_done(8)  # or 9, depending on which task
+            
             self._send_json({'status': 'stopped', 'elapsed': elapsed})
         
         else:
@@ -350,6 +368,7 @@ class BluetoothServer:
     def __init__(self):
         self.server_sock = None
         self.client_sock = None
+        self.mapper = BTMessageMapper()
         
     def start(self):
         """Start Bluetooth server"""
@@ -394,6 +413,7 @@ class BluetoothServer:
                     break
                 
                 buffer += data
+                # Split on newline for plain-text messages
                 while '\n' in buffer:
                     line, buffer = buffer.split('\n', 1)
                     self._process_message(line.strip())
@@ -406,36 +426,138 @@ class BluetoothServer:
     
     def _process_message(self, msg):
         """Process message from Android"""
-        try:
-            data = json.loads(msg)
-            msg_type = data.get('type')
-            
-            if msg_type == 'init_obstacles':
-                # Receive obstacle positions from Android
-                obstacles = data.get('obstacles', [])
-                with state.lock:
-                    state.obstacles = obstacles
-                logger.info(f"Received {len(obstacles)} obstacles from Android")
-                self.send_message({'type': 'ack', 'status': 'ok'})
-            
-            elif msg_type == 'get_status':
-                # Send current status to Android
-                self.send_message({
-                    'type': 'status',
-                    'data': state.get_state_dict()
-                })
+        if not msg:
+            return
         
-        except json.JSONDecodeError:
-            logger.warning(f"Invalid JSON from Android: {msg}")
+        logger.info(f"BT << {msg}")
+        
+        # Parse using mapper
+        parsed = self.mapper.parse_android_message(msg)
+        
+        if not parsed:
+            logger.warning(f"Unrecognized message from Android: {msg}")
+            return
+        
+        msg_type = parsed['type']
+        
+        try:
+            if msg_type == 'robot_pos':
+                # Update robot position from Android
+                x, y, direction = parsed['x'], parsed['y'], parsed['direction']
+                
+                if x != -1 and y != -1:
+                    with state.lock:
+                        # Store grid coordinates directly (0-19)
+                        # Or convert to meters if needed: x / 100.0
+                        state.robot_pos['x'] = x
+                        state.robot_pos['y'] = y
+                        
+                        # Convert direction to heading
+                        heading_map = {'N': 90, 'E': 0, 'S': 270, 'W': 180}
+                        if direction in heading_map:
+                            state.robot_pos['heading'] = heading_map[direction]
+                    
+                    logger.info(f"Robot position updated from Android: ({x},{y},{direction})")
+                    self.send_ack()
+            
+            elif msg_type == 'object_pos':
+                # Update obstacle position from Android
+                obj_id = parsed['object_id']
+                x, y, direction = parsed['x'], parsed['y'], parsed['direction']
+                
+                with state.lock:
+                    # Find or create obstacle
+                    obstacle = None
+                    for obs in state.obstacles:
+                        if obs['id'] == obj_id:
+                            obstacle = obs
+                            break
+                    
+                    if not obstacle:
+                        obstacle = {'id': obj_id, 'image_id': None}
+                        state.obstacles.append(obstacle)
+                    
+                    # Update position
+                    obstacle['x'] = x
+                    obstacle['y'] = y
+                    obstacle['face'] = direction
+                
+                logger.info(f"Obstacle {obj_id} position updated: ({x},{y},{direction})")
+                self.send_ack()
+            
+            elif msg_type == 'target':
+                # Update target assignment from Android
+                obstacle_num = parsed['obstacle']
+                target_id = parsed['target_id']
+                
+                # Update obstacle with identified image
+                state.update_obstacle_image(obstacle_num, target_id)
+                logger.info(f"Target updated: Obstacle {obstacle_num} -> Image {target_id}")
+                self.send_ack()
+            
+            elif msg_type == 'task_done':
+                # Task completion notification from Android
+                week = parsed['week']
+                logger.info(f"Week {week} task completed (notified by Android)")
+                
+                # Stop task if active
+                if state.task_active:
+                    state.task_active = False
+                    stm.send_command('s')  # Stop robot
+                
+                self.send_ack()
+        
+        except Exception as e:
+            logger.error(f"Error processing Android message: {e}")
     
-    def send_message(self, data):
-        """Send message to Android"""
+    def send_message(self, msg: str):
+        """Send plain-text message to Android (with newline)"""
         if self.client_sock:
             try:
-                msg = json.dumps(data) + '\n'
-                self.client_sock.send(msg.encode('utf-8'))
+                full_msg = msg + '\n'
+                self.client_sock.send(full_msg.encode('utf-8'))
+                logger.info(f"BT >> {msg}")
             except Exception as e:
                 logger.error(f"Failed to send BT message: {e}")
+    
+    def send_ack(self):
+        """Send simple acknowledgement"""
+        self.send_message("ACK")
+    
+    def send_robot_position(self, x: int, y: int, direction: str):
+        """Send robot position to Android"""
+        msg = self.mapper.format_robot_position(x, y, direction)
+        self.send_message(msg)
+    
+    def send_object_position(self, object_id: int, x: int, y: int, direction: str):
+        """Send object position to Android"""
+        msg = self.mapper.format_object_position(object_id, x, y, direction)
+        self.send_message(msg)
+    
+    def send_target_update(self, obstacle_num: int, target_id: int):
+        """Send target identification to Android"""
+        msg = self.mapper.format_target(obstacle_num, target_id)
+        self.send_message(msg)
+    
+    def send_task_done(self, week: int):
+        """Send task completion to Android"""
+        msg = self.mapper.format_task_done(week)
+        self.send_message(msg)
+    
+    def send_all_obstacles(self):
+        """Send all obstacle positions to Android"""
+        with state.lock:
+            for obs in state.obstacles:
+                self.send_object_position(
+                    obs['id'],
+                    obs.get('x', -1),
+                    obs.get('y', -1),
+                    obs.get('face', 'UNKNOWN')
+                )
+                
+                # If identified, also send target
+                if obs.get('image_id') is not None:
+                    self.send_target_update(obs['id'], obs['image_id'])
     
     def close(self):
         if self.client_sock:
@@ -459,6 +581,8 @@ def task_monitor():
                 state.task_active = False
                 # Send stop command to STM
                 stm.send_command('s')
+                # Notify Android
+                bt_server.send_task_done(8)
         time.sleep(1)
 
 # =============================================================================
