@@ -47,6 +47,8 @@ public class MainActivity extends AppCompatActivity implements
     private TextView wk8Timer;
     private Button wk9Button;
     private TextView wk9Timer;
+
+    private Button gridCompleteButton;
     private EditText chatBox;
     private Button sendButton;
     private TableLayout coordinateGrid;
@@ -285,6 +287,7 @@ public class MainActivity extends AppCompatActivity implements
         wk8Timer = findViewById(R.id.wk8timer);
         wk9Button = findViewById(R.id.wk9button);
         wk9Timer = findViewById(R.id.wk9timer);
+        gridCompleteButton = findViewById(R.id.gridCompleteButton);
 
         // EXPANDED TO 8 OBJECTS
         object1 = findViewById(R.id.object1);
@@ -349,6 +352,10 @@ public class MainActivity extends AppCompatActivity implements
 
         wk8Button.setOnClickListener(v -> startWeek8Task());
         wk9Button.setOnClickListener(v -> startWeek9Task());
+        gridCompleteButton.setOnClickListener(v -> {
+            messageHandler.sendCustomCommand("GRID_COMPLETE");
+            appendMessage("Grid Complete command sent");
+        });
 
         setupDragAndDrop();
     }
