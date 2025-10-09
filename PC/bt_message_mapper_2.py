@@ -272,3 +272,40 @@ class BTMessageMapper:
                 obstacles[obj_id]['image_id'] = parsed['target_id']
         
         return list(obstacles.values())
+
+@staticmethod
+def format_robot_pos(x, y, heading):
+    """
+    Format robot position message to send to Android
+    
+    Args:
+        x: X coordinate in cm (0-200)
+        y: Y coordinate in cm (0-200)
+        heading: Direction in degrees (0-359)
+    
+    Returns:
+        String like "ROBOT,12,6,N" (converts cm to grid units and heading to direction)
+        Grid coordinates are 0-19 (each grid cell = 10cm x 10cm)
+    """
+    # Convert cm to grid units and round to nearest grid
+    # Each grid cell is 10cm x 10cm
+    # Example: 125cm -> 12.5 -> round to 12 or 13
+    grid_x = round(x / 10.0)
+    grid_y = round(y / 10.0)
+    
+    # Clamp to valid grid range (0-19)
+    grid_x = max(0, min(19, grid_x))
+    grid_y = max(0, min(19, grid_y))
+    
+    # Convert heading (degrees) to cardinal direction
+    # 0° = North, 90° = East, 180° = South, 270° = West
+    if 315 <= heading or heading < 45:
+        direction = 'N'
+    elif 45 <= heading < 135:
+        direction = 'E'
+    elif 135 <= heading < 225:
+        direction = 'S'
+    else:  # 225 <= heading < 315
+        direction = 'W'
+    
+    return f"ROBOT,{grid_x},{grid_y},{direction}"

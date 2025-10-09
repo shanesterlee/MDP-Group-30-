@@ -75,12 +75,20 @@ class RobotState:
         
         logger.info("Initialized with empty obstacles (waiting for Bluetooth)")
         
-    def update_robot_pos(self, heading, x, y):
-        with self.lock:
-            self.robot_pos['heading'] = heading
-            self.robot_pos['x'] = x / 100.0
-            self.robot_pos['y'] = y / 100.0
-            logger.info(f"Robot pos updated: {self.robot_pos}")
+def update_robot_pos(self, heading, x, y):
+    with self.lock:
+        self.robot_pos['heading'] = heading
+        self.robot_pos['x'] = x / 100.0  # Store as meters internally
+        self.robot_pos['y'] = y / 100.0
+        logger.info(f"Robot pos updated: {self.robot_pos}")
+    
+    # Send to Android (outside lock to avoid blocking)
+    try:
+        msg = BTMessageMapper.format_robot_pos(x, y, heading)
+        bt_server.send_message(msg)
+        logger.info(f"Sent robot position to Android: {msg}")
+    except Exception as e:
+        logger.warning(f"Failed to send robot pos to Android: {e}")
     
     def add_or_update_obstacle(self, parsed_data):
         """
