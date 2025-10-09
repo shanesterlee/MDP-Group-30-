@@ -78,17 +78,29 @@ class RobotState:
     def update_robot_pos(self, heading, x, y):
         with self.lock:
             self.robot_pos['heading'] = heading
-            self.robot_pos['x'] = x / 100.0  # Store as meters internally
+            self.robot_pos['x'] = x / 100.0
             self.robot_pos['y'] = y / 100.0
             logger.info(f"Robot pos updated: {self.robot_pos}")
+            
+            # Send position update to Android via Bluetooth
+            # Convert heading to direction (N/S/E/W)
+            direction = self._heading_to_direction(heading)
+            return (x, y, direction)
+    
+    def _heading_to_direction(self, heading):
+        """Convert heading (0-360) to direction (N/S/E/W)"""
+        # Normalize heading to 0-360
+        heading = heading % 360
         
-        # Send to Android (outside lock to avoid blocking)
-        try:
-            msg = BTMessageMapper.format_robot_pos(x, y, heading)
-            bt_server.send_message(msg)
-            logger.info(f"Sent robot position to Android: {msg}")
-        except Exception as e:
-            logger.warning(f"Failed to send robot pos to Android: {e}")
+        # Map heading to nearest cardinal direction
+        if 45 <= heading < 135:
+            return 'E'
+        elif 135 <= heading < 225:
+            return 'S'
+        elif 225 <= heading < 315:
+            return 'W'
+        else:  # 315-360 or 0-45
+            return 'N'
     
     def add_or_update_obstacle(self, parsed_data):
         """
@@ -399,9 +411,21 @@ class STMComm:
             parts = line.split(',')
             if len(parts) == 3:
                 heading = int(parts[0].strip())
-                x = int(parts[1].strip())
-                y = int(parts[2].strip())
-                state.update_robot_pos(heading, x, y)
+                x_cm = int(parts[1].strip())
+                y_cm = int(parts[2].strip())
+                
+                # Update state and get position info
+                pos_info = state.update_robot_pos(heading, x_cm, y_cm)
+                
+                # Send position update to Android via Bluetooth
+                # Convert cm to grid coordinates (divide by 5 to get grid units)
+                if pos_info:
+                    x_val, y_val, direction = pos_info
+                    x_grid = int(x_val / 5)  # Convert cm to grid units (0-19)
+                    y_grid = int(y_val / 5)
+                    msg = BTMessageMapper.format_robot_position(x_grid, y_grid, direction)
+                    bt_server.send_message(msg)
+                
                 with self.lock:
                     self.response_buffer = line
                     self.response_ready.set()
