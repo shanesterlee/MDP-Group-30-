@@ -74,6 +74,8 @@ public class MainActivity extends AppCompatActivity implements
     private long week9StartTime = 0;
     private boolean week8Running = false;
     private boolean week9Running = false;
+    private long week8PausedTime = 0;
+    private long week9PausedTime = 0;
 
     // State
     private String currentObject = "None";
@@ -165,7 +167,7 @@ public class MainActivity extends AppCompatActivity implements
     private void startWeek8Timer() {
         if (!week8Running) {
             week8Running = true;
-            week8StartTime = SystemClock.elapsedRealtime();
+            week8StartTime = SystemClock.elapsedRealtime() - week8PausedTime;
             wk8Button.setEnabled(true);
             wk8Button.setText("Stop");
             timerHandler.post(week8TimerRunnable);
@@ -173,16 +175,14 @@ public class MainActivity extends AppCompatActivity implements
         }
     }
 
-    private void stopWeek8Timer() {
+    private void pauseWeek8Timer() {
         if (week8Running) {
             week8Running = false;
+            week8PausedTime = SystemClock.elapsedRealtime() - week8StartTime;
             timerHandler.removeCallbacks(week8TimerRunnable);
-            wk8Button.setEnabled(true);
-            wk8Button.setText("Start Week 8");
-            long finalTime = SystemClock.elapsedRealtime() - week8StartTime;
-            long minutes = (finalTime / 1000) / 60;
-            long seconds = (finalTime / 1000) % 60;
-            long centiseconds = (finalTime % 1000) / 10;
+            long minutes = (week8PausedTime / 1000) / 60;
+            long seconds = (week8PausedTime / 1000) % 60;
+            long centiseconds = (week8PausedTime % 1000) / 10;
             appendMessage(String.format("Week 8 task completed in %02d:%02d.%02d",
                     minutes, seconds, centiseconds));
         }
@@ -190,6 +190,7 @@ public class MainActivity extends AppCompatActivity implements
 
     private void resetWeek8Timer() {
         week8Running = false;
+        week8PausedTime = 0;
         timerHandler.removeCallbacks(week8TimerRunnable);
         wk8Button.setEnabled(true);
         wk8Button.setText("Start Week 8");
@@ -200,7 +201,7 @@ public class MainActivity extends AppCompatActivity implements
     private void startWeek9Timer() {
         if (!week9Running) {
             week9Running = true;
-            week9StartTime = SystemClock.elapsedRealtime();
+            week9StartTime = SystemClock.elapsedRealtime() - week9PausedTime;
             wk9Button.setEnabled(true);
             wk9Button.setText("Stop");
             timerHandler.post(week9TimerRunnable);
@@ -208,16 +209,14 @@ public class MainActivity extends AppCompatActivity implements
         }
     }
 
-    private void stopWeek9Timer() {
+    private void pauseWeek9Timer() {
         if (week9Running) {
             week9Running = false;
+            week9PausedTime = SystemClock.elapsedRealtime() - week9StartTime;
             timerHandler.removeCallbacks(week9TimerRunnable);
-            wk9Button.setEnabled(true);
-            wk9Button.setText("Week 9");
-            long finalTime = SystemClock.elapsedRealtime() - week9StartTime;
-            long minutes = (finalTime / 1000) / 60;
-            long seconds = (finalTime / 1000) % 60;
-            long centiseconds = (finalTime % 1000) / 10;
+            long minutes = (week9PausedTime / 1000) / 60;
+            long seconds = (week9PausedTime / 1000) % 60;
+            long centiseconds = (week9PausedTime % 1000) / 10;
             appendMessage(String.format("Week 9 task completed in %02d:%02d.%02d",
                     minutes, seconds, centiseconds));
         }
@@ -225,6 +224,7 @@ public class MainActivity extends AppCompatActivity implements
 
     private void resetWeek9Timer() {
         week9Running = false;
+        week9PausedTime = 0;
         timerHandler.removeCallbacks(week9TimerRunnable);
         wk9Button.setEnabled(true);
         wk9Button.setText("Week 9");
@@ -549,12 +549,12 @@ public class MainActivity extends AppCompatActivity implements
 
     @Override
     public void onWeek8TaskDone() {
-        runOnUiThread(() -> stopWeek8Timer());
+        runOnUiThread(() -> pauseWeek8Timer());
     }
 
     @Override
     public void onWeek9TaskDone() {
-        runOnUiThread(() -> stopWeek9Timer());
+        runOnUiThread(() -> pauseWeek9Timer());
     }
 
     private void rotateRobotCarToDirection(String direction) {
