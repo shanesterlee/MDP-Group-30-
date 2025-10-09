@@ -56,6 +56,20 @@
         app:layout_constraintStart_toEndOf="@id/wk8button"
         app:layout_constraintTop_toTopOf="@id/wk8button" />
 
+    <!-- Grid Complete Button -->
+    <Button
+        android:id="@+id/gridCompleteButton"
+        android:layout_width="wrap_content"
+        android:layout_height="42dp"
+        android:layout_marginStart="12dp"
+        android:background="@drawable/rounded_start_button_purple"
+        android:text="Grid Complete"
+        android:textColor="#FFFFFF"
+        android:textSize="10sp"
+        android:paddingHorizontal="12dp"
+        app:layout_constraintStart_toEndOf="@id/wk9button"
+        app:layout_constraintTop_toTopOf="@id/wk8button" />
+
     <Button
         android:id="@+id/connect"
         android:layout_width="wrap_content"
